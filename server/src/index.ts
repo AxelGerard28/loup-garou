@@ -103,12 +103,14 @@ io.on("connection", (socket) => {
     const player = gameState.players.find((p: Player) => p.id === socket.id);
     if (player?.isHost) {
       gameState = {
-        players: gameState.players.map(p => ({
-          ...p,
-          isAlive: true,
-          isReady: false,
-          role: undefined,
-        })),
+        players: gameState.players.map(p => {
+          const { role, ...rest } = p;
+          return {
+            ...rest,
+            isAlive: true,
+            isReady: false,
+          };
+        }),
         phase: 'LOBBY',
         dayCount: 0,
         witchHasLifePotion: true,
