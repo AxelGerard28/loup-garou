@@ -26,6 +26,7 @@ function App() {
     socket.on('disconnect', onDisconnect);
     socket.on('gameStateUpdate', (state: GameState) => {
       setGameState(state);
+      // Only clear actionResult on phase changes, but Witch needs to keep it during her turn
       if (state.phase !== 'NIGHT') setActionResult(null);
     });
     socket.on('roleAssigned', (role: Role) => setMyRole(role));
@@ -154,8 +155,8 @@ function App() {
         </div>
       </header>
 
-      <div className="grid lg:grid-cols-4 gap-8 flex-1">
-        <div className="lg:col-span-3 space-y-8">
+      <div className="grid lg:grid-cols-4 gap-8 flex-1 overflow-hidden">
+        <div className="lg:col-span-3 space-y-8 overflow-y-auto pr-4 scrollbar-thin scrollbar-thumb-white/5">
           {gameState.phase === 'LOBBY' && (
             <div className="grid md:grid-cols-2 gap-8 animate-in fade-in duration-500">
               <div className="bg-white/5 p-8 rounded-2xl border border-white/10 shadow-xl">
@@ -208,6 +209,16 @@ function App() {
             <div className="text-center py-24 bg-white/5 rounded-3xl border border-white/10 shadow-2xl animate-in zoom-in duration-500">
               <h2 className="text-8xl font-black mb-6 text-game-blood tracking-tighter uppercase drop-shadow-[0_0_20px_rgba(139,0,0,0.6)]">VICTOIRE !</h2>
               <p className="text-4xl mb-12 font-bold tracking-tight">Les {gameState.winner === 'WEREWOLVES' ? 'Loups-Garous' : 'Villageois'} l'emportent.</p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12 px-8">
+                {gameState.players.map(p => (
+                  <div key={p.id} className="p-4 bg-white/5 rounded-xl border border-white/10">
+                    <p className="font-bold">{p.name}</p>
+                    <p className="text-xs text-game-blood font-black uppercase">{p.role}</p>
+                  </div>
+                ))}
+              </div>
+
               {me?.isHost ? (
                 <button onClick={restartGame} className="px-12 py-6 bg-game-blood hover:bg-red-700 rounded-2xl font-black uppercase tracking-[0.3em] transition-all shadow-2xl shadow-game-blood/40 active:scale-95">Rejouer</button>
               ) : (
@@ -270,7 +281,7 @@ function App() {
                 {gameState.players.map(p => (
                   <div key={p.id} className={`p-5 rounded-2xl border transition-all duration-300 flex flex-col justify-between group ${
                     p.isAlive ? 'bg-white/5 border-white/10 hover:border-white/30 hover:bg-white/[0.07]' : 'bg-red-950/20 border-red-900/20 opacity-60 grayscale'
-                  }`}>
+                  } ${me?.votedFor === p.id ? 'ring-4 ring-green-500 border-green-500 shadow-[0_0_20px_rgba(34,197,94,0.3)]' : ''}`}>
                     <div className="relative">
                       <div className="font-black text-lg truncate mb-1">{p.name} {p.id === socket.id && <span className="text-game-blood text-[10px] ml-1 tracking-tighter">(TOI)</span>}</div>
                       <div className="text-[10px] uppercase font-bold tracking-widest">
@@ -321,11 +332,11 @@ function App() {
           )}
         </div>
 
-        <aside className="space-y-8 h-full flex flex-col min-h-[500px]">
-          <div className="bg-white/5 p-6 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden flex flex-col h-full">
-            <h4 className="font-black mb-4 uppercase text-xs tracking-[0.4em] text-game-blood border-b border-white/5 pb-4">Conseil du Village</h4>
+        <aside className="space-y-8 h-full flex flex-col min-h-[500px] max-h-screen">
+          <div className="bg-white/5 p-6 rounded-3xl border border-white/10 shadow-2xl relative overflow-hidden flex flex-col flex-1">
+            <h4 className="font-black mb-4 uppercase text-xs tracking-[0.4em] text-game-blood border-b border-white/5 pb-4 shrink-0">Conseil du Village</h4>
             
-            <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2 mb-4 scrollbar-thin scrollbar-thumb-white/10 min-h-0">
               {gameState.messages.map((msg, i) => (
                 <div key={i} className={`flex flex-col ${msg.senderId === socket.id ? 'items-end' : 'items-start'}`}>
                   <span className="text-[10px] font-bold text-gray-500 mb-1">{msg.senderName}</span>
@@ -337,10 +348,10 @@ function App() {
               <div ref={chatEndRef} />
             </div>
 
-            <form onSubmit={handleSendChat} className="relative mt-auto">
+            <form onSubmit={handleSendChat} className="relative shrink-0">
               <input
                 type="text"
-                placeholder={me?.isAlive ? "Tapez votre message..." : "Les morts ne parlent pas..."}
+                placeholder={me?.isAlive ? "Message..." : "Éliminé"}
                 disabled={!me?.isAlive || gameState.phase === 'NIGHT'}
                 className="w-full p-4 pr-12 bg-black/40 border border-white/10 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-game-blood disabled:opacity-30 transition-all"
                 value={chatInput}
@@ -356,7 +367,7 @@ function App() {
             </form>
           </div>
 
-          <div className="bg-white/5 p-6 rounded-3xl border border-white/10">
+          <div className="bg-white/5 p-6 rounded-3xl border border-white/10 shrink-0">
              <div className="flex justify-between items-center group mb-4">
                 <span className="text-gray-400 text-xs font-bold uppercase tracking-widest">Phase</span>
                 <span className="font-black text-game-blood bg-game-blood/10 px-3 py-1 rounded-lg text-sm tracking-tighter uppercase">{gameState.phase}</span>
@@ -369,7 +380,7 @@ function App() {
           
           <button 
             onClick={() => window.location.reload()}
-            className="w-full py-4 text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 hover:text-white transition-all flex items-center justify-center gap-2 hover:bg-white/5 rounded-2xl border border-transparent hover:border-white/5"
+            className="w-full py-4 text-[10px] font-black uppercase tracking-[0.4em] text-gray-500 hover:text-white transition-all flex items-center justify-center gap-2 hover:bg-white/5 rounded-2xl border border-transparent hover:border-white/5 shrink-0"
           >
             <ArrowLeft size={14} /> Quitter
           </button>
