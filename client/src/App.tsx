@@ -73,6 +73,10 @@ function App() {
     socket.emit('vote', targetId);
   };
 
+  const restartGame = () => {
+    socket.emit('resetGame');
+  };
+
   const me = gameState?.players.find(p => p.id === socket.id);
 
   if (!isConnected) {
@@ -173,7 +177,11 @@ function App() {
         <div className="text-center py-20 bg-white/5 rounded-3xl border border-white/10">
           <h2 className="text-6xl font-bold mb-4 text-game-blood">VICTOIRE !</h2>
           <p className="text-3xl mb-8">Les {gameState.winner === 'WEREWOLVES' ? 'Loups-Garous' : 'Villageois'} ont gagné.</p>
-          <button onClick={() => window.location.reload()} className="px-8 py-4 bg-white/10 hover:bg-white/20 rounded-xl font-bold">REJOUER</button>
+          {me?.isHost ? (
+            <button onClick={restartGame} className="px-8 py-4 bg-game-blood hover:bg-red-700 rounded-xl font-bold uppercase tracking-widest transition-all">Relancer une partie</button>
+          ) : (
+            <p className="text-gray-400 italic">En attente de l'hôte pour relancer...</p>
+          )}
         </div>
       )}
 
@@ -214,8 +222,13 @@ function App() {
                 }`}>
                   <div>
                     <div className="font-bold truncate">{p.name} {p.id === socket.id && "(Toi)"}</div>
-                    <div className="text-xs uppercase mt-1">
-                      {p.isAlive ? <span className="text-green-500">Vivant</span> : <span className="text-red-500">Mort</span>}
+                    <div className="text-xs uppercase mt-1 flex justify-between items-center">
+                      {p.isAlive ? <span className="text-green-500">Vivant</span> : (
+                        <>
+                          <span className="text-red-500 font-bold">MORT</span>
+                          {p.role && <span className="text-gray-400 text-[10px] ml-2 italic">({p.role})</span>}
+                        </>
+                      )}
                     </div>
                   </div>
                   

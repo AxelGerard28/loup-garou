@@ -93,10 +93,28 @@ io.on("connection", (socket) => {
     if (gameState.phase !== 'VOTE') return;
     votes[socket.id] = targetId;
     
-    // Check if everyone voted
     const alivePlayers = gameState.players.filter((p: Player) => p.isAlive);
     if (Object.keys(votes).length === alivePlayers.length) {
       processVoteResults();
+    }
+  });
+
+  socket.on("resetGame", () => {
+    const player = gameState.players.find((p: Player) => p.id === socket.id);
+    if (player?.isHost) {
+      gameState = {
+        players: gameState.players.map(p => ({
+          ...p,
+          isAlive: true,
+          isReady: false,
+          role: undefined,
+        })),
+        phase: 'LOBBY',
+        dayCount: 0,
+        witchHasLifePotion: true,
+        witchHasDeathPotion: true,
+      };
+      io.emit("gameStateUpdate", gameState);
     }
   });
 
