@@ -3,7 +3,8 @@ import { io, Socket } from 'socket.io-client';
 import type { GameState, Role } from './types';
 import { Users, Moon, Sun } from 'lucide-react';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:3001';
+// REMPLACEZ CETTE URL par celle de votre service Render
+const SOCKET_URL = 'https://loup-garou-01al.onrender.com'; 
 const socket: Socket = io(SOCKET_URL);
 
 function App() {
