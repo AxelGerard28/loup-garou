@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { GameState, Role } from './types';
-import { Users, Moon, Sun, ArrowLeft, LogIn, PlusCircle, Send } from 'lucide-react';
+import { Users, Moon, Sun, ArrowLeft, LogIn, PlusCircle, Send, Heart, Skull, SkipForward } from 'lucide-react';
 
 // REMPLACEZ CETTE URL par celle de votre service Render
 const SOCKET_URL = 'https://loup-garou-01al.onrender.com'; 
@@ -251,7 +251,7 @@ function App() {
 
                   {actionResult && (
                     <div className="mt-6 p-4 bg-blue-900/30 border border-blue-500/30 rounded-2xl text-blue-200 font-bold animate-in bounce-in">
-                      🔮 Vision : {actionResult}
+                      {myRole === 'WITCH' ? `🧪 Grimoire : ${actionResult}` : `🔮 Vision : ${actionResult}`}
                     </div>
                   )}
                 </div>
@@ -294,10 +294,18 @@ function App() {
                           <button onClick={() => performAction('see', p.id)} className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Observer</button>
                         )}
                         {isMyTurn && myRole === 'WITCH' && (
-                          <>
-                            {p.id !== socket.id && <button onClick={() => performAction('kill', p.id)} className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors">Empoisonner</button>}
-                            {p.name === gameState.lastDeath && <button onClick={() => performAction('save')} className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors">Sauver</button>}
-                          </>
+                          <div className="space-y-2">
+                            {gameState.witchHasDeathPotion && p.id !== socket.id && (
+                              <button onClick={() => performAction('kill', p.id)} className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
+                                <Skull size={12} /> Empoisonner
+                              </button>
+                            )}
+                            {gameState.witchHasLifePotion && actionResult?.includes(p.name) && (
+                              <button onClick={() => performAction('save')} className="w-full py-2 text-[10px] font-black uppercase tracking-[0.2em] bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                                <Heart size={12} /> Sauver
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     )}
@@ -305,7 +313,9 @@ function App() {
                 ))}
               </div>
               {isMyTurn && myRole === 'WITCH' && (
-                <button onClick={() => performAction('skip')} className="mt-4 px-6 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-bold uppercase tracking-widest border border-white/10 transition-all">Ne rien faire</button>
+                <button onClick={() => performAction('skip')} className="mt-4 px-6 py-3 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-black uppercase tracking-[0.2em] border border-white/10 transition-all flex items-center gap-2">
+                  <SkipForward size={14} /> Ne rien faire / Terminer tour
+                </button>
               )}
             </div>
           )}
