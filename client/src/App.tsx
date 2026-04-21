@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { GameState, Role } from './types';
-import { Users, Moon, Sun, ArrowLeft, LogIn, PlusCircle, Send, Heart, Skull, SkipForward } from 'lucide-react';
+import { Users, Moon, Sun, ArrowLeft, LogIn, PlusCircle, Send, Heart, Skull } from 'lucide-react';
 
 const SOCKET_URL = 'https://loup-garou-01al.onrender.com'; 
 const socket: Socket = io(SOCKET_URL);
