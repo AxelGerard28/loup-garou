@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
-import type { GameState, Role, Player } from './types';
+import type { GameState, Role } from './types';
 import { Users, Moon, Sun, ArrowLeft, LogIn, PlusCircle } from 'lucide-react';
 
 // REMPLACEZ CETTE URL par celle de votre service Render
