@@ -2,7 +2,7 @@ export type Role = 'WEREWOLF' | 'VILLAGER' | 'SEER' | 'WITCH' | 'HUNTER' | 'CUPI
 
 export type Phase = 'LOBBY' | 'NIGHT' | 'DAY' | 'VOTE' | 'END';
 
-export type NightSubPhase = 'SEER' | 'WEREWOLF' | 'WITCH' | 'END';
+export type NightSubPhase = 'SEER' | 'WEREWOLF' | 'WITCH' | 'END' | undefined;
 
 export interface ChatMessage {
   senderId: string;
