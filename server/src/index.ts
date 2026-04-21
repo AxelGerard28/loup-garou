@@ -1,7 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
-import type { GameState, Player, Role, Phase } from './types.js';
+import type { GameState, Player, Role, Phase, NightSubPhase, ChatMessage } from './types.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -12,9 +12,8 @@ const io = new Server(httpServer, {
   }
 });
 
-// Store games by room code
 const rooms: Record<string, GameState> = {};
-const roomVotes: Record<string, Record<string, string>> = {}; // roomCode -> { voterId -> targetId }
+const roomVotes: Record<string, Record<string, string>> = {}; 
 const roomNightActions: Record<string, any> = {};
 
 io.on("connection", (socket) => {
@@ -31,6 +30,7 @@ io.on("connection", (socket) => {
         dayCount: 0,
         witchHasLifePotion: true,
         witchHasDeathPotion: true,
+        messages: [],
       };
       roomVotes[code] = {};
       roomNightActions[code] = { werewolfTarget: null, seerTarget: null, witchSave: false, witchKill: null };
@@ -48,9 +48,26 @@ io.on("connection", (socket) => {
     };
     
     gameState.players.push(newPlayer);
-    (socket as any).roomCode = code; // Attach roomCode to socket for disconnect handling
+    (socket as any).roomCode = code;
 
     io.to(code).emit("gameStateUpdate", gameState);
+  });
+
+  socket.on("sendMessage", (text: string) => {
+    const code = (socket as any).roomCode;
+    if (!code || !rooms[code]) return;
+    const player = rooms[code]!.players.find((p: Player) => p.id === socket.id);
+    if (!player || !player.isAlive) return;
+
+    const newMessage: ChatMessage = {
+      senderId: socket.id,
+      senderName: player.name,
+      text,
+      timestamp: Date.now(),
+    };
+
+    rooms[code]!.messages.push(newMessage);
+    io.to(code).emit("gameStateUpdate", rooms[code]);
   });
 
   socket.on("readyUp", () => {
@@ -70,6 +87,7 @@ io.on("connection", (socket) => {
     if (player?.isHost && rooms[code]!.players.length >= 4) {
       assignRoles(code);
       rooms[code]!.phase = 'NIGHT';
+      rooms[code]!.nightSubPhase = 'SEER';
       rooms[code]!.dayCount = 1;
       io.to(code).emit("gameStateUpdate", rooms[code]);
     }
@@ -82,25 +100,28 @@ io.on("connection", (socket) => {
     const player = rooms[code]!.players.find((p: Player) => p.id === socket.id);
     if (!player || !player.isAlive) return;
 
+    const subPhase = rooms[code]!.nightSubPhase;
     const actions = roomNightActions[code];
 
-    if (player.role === 'WEREWOLF' && action === 'kill' && targetId) {
-      actions.werewolfTarget = targetId;
-      checkNightEnd(code);
-    } else if (player.role === 'SEER' && action === 'see' && targetId) {
+    if (player.role === 'SEER' && subPhase === 'SEER' && action === 'see' && targetId) {
       const target = rooms[code]!.players.find((p: Player) => p.id === targetId);
       socket.emit("actionResult", `Le rôle de ${target?.name} est ${target?.role}`);
       actions.seerTarget = targetId;
-      checkNightEnd(code);
-    } else if (player.role === 'WITCH') {
+      advanceNight(code);
+    } else if (player.role === 'WEREWOLF' && subPhase === 'WEREWOLF' && action === 'kill' && targetId) {
+      actions.werewolfTarget = targetId;
+      advanceNight(code);
+    } else if (player.role === 'WITCH' && subPhase === 'WITCH') {
       if (action === 'save' && rooms[code]!.witchHasLifePotion) {
         actions.witchSave = true;
         rooms[code]!.witchHasLifePotion = false;
       } else if (action === 'kill' && targetId && rooms[code]!.witchHasDeathPotion) {
         actions.witchKill = targetId;
         rooms[code]!.witchHasDeathPotion = false;
+      } else if (action === 'skip') {
+        // Just advance
       }
-      checkNightEnd(code);
+      advanceNight(code);
     }
   });
 
@@ -130,6 +151,7 @@ io.on("connection", (socket) => {
         dayCount: 0,
         witchHasLifePotion: true,
         witchHasDeathPotion: true,
+        messages: [],
       };
       roomVotes[code] = {};
       roomNightActions[code] = { werewolfTarget: null, seerTarget: null, witchSave: false, witchKill: null };
@@ -156,19 +178,32 @@ io.on("connection", (socket) => {
   });
 });
 
-function checkNightEnd(code: string) {
+function advanceNight(code: string) {
   const gameState = rooms[code];
   if (!gameState) return;
-  const werewolf = gameState.players.find((p: Player) => p.role === 'WEREWOLF' && p.isAlive);
-  const seer = gameState.players.find((p: Player) => p.role === 'SEER' && p.isAlive);
-  const actions = roomNightActions[code];
 
-  const wwActed = !werewolf || actions.werewolfTarget;
-  const seerActed = !seer || actions.seerTarget;
-  
-  if (wwActed && seerActed) {
+  const currentSubPhase = gameState.nightSubPhase;
+
+  if (currentSubPhase === 'SEER') {
+    gameState.nightSubPhase = 'WEREWOLF';
+    // If no werewolves (shouldn't happen), skip to next
+    if (!gameState.players.some(p => p.role === 'WEREWOLF' && p.isAlive)) {
+      advanceNight(code);
+      return;
+    }
+  } else if (currentSubPhase === 'WEREWOLF') {
+    gameState.nightSubPhase = 'WITCH';
+    if (!gameState.players.some(p => p.role === 'WITCH' && p.isAlive)) {
+      advanceNight(code);
+      return;
+    }
+  } else if (currentSubPhase === 'WITCH') {
+    gameState.nightSubPhase = 'END';
     transitionToDay(code);
+    return;
   }
+
+  io.to(code).emit("gameStateUpdate", gameState);
 }
 
 function transitionToDay(code: string) {
@@ -195,6 +230,7 @@ function transitionToDay(code: string) {
   }
 
   gameState.phase = 'DAY';
+  gameState.nightSubPhase = undefined;
   roomNightActions[code] = { werewolfTarget: null, seerTarget: null, witchSave: false, witchKill: null };
   io.to(code).emit("gameStateUpdate", gameState);
 
@@ -243,6 +279,7 @@ function checkWinCondition(code: string) {
     gameState.winner = 'WEREWOLVES';
   } else {
     gameState.phase = 'NIGHT';
+    gameState.nightSubPhase = 'SEER';
     gameState.dayCount++;
   }
   io.to(code).emit("gameStateUpdate", gameState);
